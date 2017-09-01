@@ -1,11 +1,12 @@
-from model import Model
+from model import *
 from a_star import BestFirst
 
 
 puzzles = ['cat', 'chicken', 'clover', 'elephant', 'fox', 'rabbit', 'reindeer', 'sailboat', 'snail2', 'telephone']
 
 
-model = Model('puzzles/nono-'+puzzles[0]+'.txt')
+model = ModelV1('puzzles/nono-'+puzzles[0]+'.txt')
 
-for d in model.domains[1][-1]:
-    print(d)
+
+
+print(model.generate_random_state())
