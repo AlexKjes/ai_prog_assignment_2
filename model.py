@@ -1,18 +1,20 @@
 from random import randint
 import numpy as np
 import tkinter as tk
-from csp_graph import *
+from csp_graph import Graph
 
 class Model:
 
     def __init__(self, path):
         specs = self.read_file(path)
+        self.csp_graph = Graph()
         self.shape = specs[0]
         self.row_hints = list(reversed(specs[1:self.shape[1]+1]))
         self.column_hints = list(reversed(specs[1+self.shape[1]:]))
         self.row_variables = [[] for _ in range(len(self.row_hints))]
         self.column_variables = [[] for _ in range(len(self.column_hints))]
-        self.generate_domains()
+        self.generate_domains_and_1d_constraints()
+        self.generate_2d_constraints()
 
     def h(self):
         pass
@@ -23,27 +25,32 @@ class Model:
     def generate_random_state(self):
         pass
 
-    def generate_domains(self):
+    def generate_domains_and_1d_constraints(self):
         for i, row in enumerate(self.row_hints):
             for _ in row:
-                self.row_variables[i].append(Node([x for x in range(self.shape[0])]))
+                self.row_variables[i].append(self.csp_graph.add_node([x for x in range(self.shape[0])]))
             for j, h in enumerate(row):
                 if j == len(row)-1:  # if last variable
-                    Edge(self.row_variables[i][j], self.row_variables[i][j], lambda x, y: x+h-1 < self.shape[0])
+                    self.csp_graph.add_edge(self.row_variables[i][j], self.row_variables[i][j], lambda x, y: x+h-1 < self.shape[0])
                 else:
-                    Edge(self.row_variables[i][j], self.row_variables[i][j+1], lambda x, y: x+h < max(y))
+                    self.csp_graph.add_edge(self.row_variables[i][j], self.row_variables[i][j+1], lambda x, y: x+h < max(y))
                 if j != 0:  # if not first variable
-                    Edge(self.row_variables[i][j], self.row_variables[i][j-1], lambda x, y: x > min(y)+row[j-1])
+                    self.csp_graph.add_edge(self.row_variables[i][j], self.row_variables[i][j-1], lambda x, y: x > min(y)+row[j-1])
         for i, column in enumerate(self.column_hints):
             for _ in column:
-                self.column_variables[i].append(Node([x for x in range(self.shape[1])]))
+                self.column_variables[i].append(self.csp_graph.add_node([x for x in range(self.shape[1])]))
             for j, h in enumerate(column):
                 if j == len(column)-1:  # if last variable
-                    Edge(self.column_variables[i][j], self.column_variables[i][j], lambda x, y: x+h-1 < self.shape[1])
+                    self.csp_graph.add_edge(self.column_variables[i][j], self.column_variables[i][j], lambda x, y: x+h-1 < self.shape[1])
                 else:
-                    Edge(self.column_variables[i][j], self.column_variables[i][j+1], lambda x, y: x+h < max(y))
+                    self.csp_graph.add_edge(self.column_variables[i][j], self.column_variables[i][j+1], lambda x, y: x+h < max(y))
                 if j != 0:  # if not first variable
-                    Edge(self.column_variables[i][j], self.column_variables[i][j-1], lambda x, y: x > min(y)+column[j-1])
+                    self.csp_graph.add_edge(self.column_variables[i][j], self.column_variables[i][j-1], lambda x, y: x > min(y)+column[j-1])
+
+    def generate_2d_constraints(self):
+        for x, cvs in enumerate(self.column_variables):
+            for y, rvs in enumerate(self.row_variables):
+                for v in
 
     def generate_segments(self, constraints, domain):
         pass

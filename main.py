@@ -7,5 +7,5 @@ puzzles = ['cat', 'chicken', 'clover', 'elephant', 'fox', 'rabbit', 'reindeer', 
 
 model = Model('puzzles/nono-'+puzzles[0]+'.txt')
 
-for v in model.row_variables[0]:
+for v in model.row_variables[1]:
     print(v.domain)

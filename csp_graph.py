@@ -1,14 +1,46 @@
 
 
+class Graph:
+    def __init__(self):
+        self.nodes = []
+        self.edges = []
+
+    def add_node(self, domain):
+        n = Node(domain)
+        self.nodes.append(n)
+        return n
+
+    def add_edge(self, from_node, to_node, constraint):
+        e = Edge(from_node, to_node, constraint)
+        self.edges.append(e)
+        return e
+
+    def save_state(self):
+        for n in self.nodes:
+            n.save()
+
+    def revert(self):
+        for n in self.nodes:
+            n.revert()
+
+
 class Node:
     def __init__(self, domain):
         self.domain = domain
+        self.history = []
         self.to_edges = []
 
     def update(self, new_domain):
         self.domain = new_domain
         for e in self.to_edges:
             e.revise()
+
+    def save(self):
+        self.history.append(self.domain)
+
+    def revert(self):
+        self.domain = self.history.pop()
+
 
 
 class Edge:
