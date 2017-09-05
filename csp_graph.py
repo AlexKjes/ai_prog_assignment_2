@@ -1,3 +1,5 @@
+global log
+log = False
 
 
 class Graph:
@@ -42,11 +44,11 @@ class Node:
         self.domain = self.history.pop()
 
 
-
+# Started as an edge, mutated in to some kind of fork to support > binary constraints
 class Edge:
-    def __init__(self, from_node, to_node, constraint):
-        self.to_node = to_node
-        to_node.to_edges.append(self)
+    def __init__(self, from_node, to_nodes, constraint):
+        self.to_nodes = to_nodes
+        [to_node.to_edges.append(self) for to_node in to_nodes]
         self.from_node = from_node
         self.constraint = constraint
         self.revise()
@@ -55,10 +57,12 @@ class Edge:
         updated_domain = []
         change = False
         for element in self.from_node.domain:
-            if len(self.to_node.domain) != 0 and self.constraint(element, self.to_node.domain):
+            if all([len(to_node.domain) != 0 for to_node in self.to_nodes]) and self.constraint(element, [to_node.domain for to_node in self.to_nodes]):
                 updated_domain.append(element)
             else:
                 change = True
+        global log
+        log = False
         if change:
             self.from_node.update(updated_domain)
 

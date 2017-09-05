@@ -16,14 +16,29 @@ class Model:
         self.generate_domains_and_1d_constraints()
         self.generate_2d_constraints()
 
+        self.tk_master = None
+        self.tk_canvas = None
+
     def h(self):
         pass
 
-    def generate_next(self, state):
+    def generate_next(self):
         pass
 
-    def generate_random_state(self):
-        pass
+    def is_solution(self):
+        for vs in self.row_variables + self.column_variables:
+            for v in vs:
+                if len(v.domain) != 1:
+                    return False
+        return True
+
+    def is_invalid(self):
+        for vs in self.row_variables + self.column_variables:
+            for v in vs:
+                if len(v.domain) == 0:
+                    return True
+        return False
+
 
     def generate_domains_and_1d_constraints(self):
         for i, row in enumerate(self.row_hints):
@@ -31,32 +46,75 @@ class Model:
                 self.row_variables[i].append(self.csp_graph.add_node([x for x in range(self.shape[0])]))
             for j, h in enumerate(row):
                 if j == len(row)-1:  # if last variable
-                    self.csp_graph.add_edge(self.row_variables[i][j], self.row_variables[i][j], lambda x, y: x+h-1 < self.shape[0])
+                    self.csp_graph.add_edge(self.row_variables[i][j], [self.row_variables[i][j]], lambda x, y, l=h: x+l-1 < self.shape[0])
                 else:
-                    self.csp_graph.add_edge(self.row_variables[i][j], self.row_variables[i][j+1], lambda x, y: x+h < max(y))
+                    self.csp_graph.add_edge(self.row_variables[i][j], [self.row_variables[i][j+1]], lambda x, y, l=h: x+l < max(y[0]))
                 if j != 0:  # if not first variable
-                    self.csp_graph.add_edge(self.row_variables[i][j], self.row_variables[i][j-1], lambda x, y: x > min(y)+row[j-1])
+                    self.csp_graph.add_edge(self.row_variables[i][j], [self.row_variables[i][j-1]], lambda x, y, lp=row[j-1]: x > min(y[0])+lp)
         for i, column in enumerate(self.column_hints):
             for _ in column:
                 self.column_variables[i].append(self.csp_graph.add_node([x for x in range(self.shape[1])]))
             for j, h in enumerate(column):
+                #if i == 4 and j == 0:
+                #    print(h)
+                #    print(self.column_variables[i][j].domain)
+                #    print(self.column_variables[i][j+1].domain)
                 if j == len(column)-1:  # if last variable
-                    self.csp_graph.add_edge(self.column_variables[i][j], self.column_variables[i][j], lambda x, y: x+h-1 < self.shape[1])
+                    self.csp_graph.add_edge(self.column_variables[i][j], [self.column_variables[i][j]], lambda x, y, l=h: x+l-1 < self.shape[1])
                 else:
-                    self.csp_graph.add_edge(self.column_variables[i][j], self.column_variables[i][j+1], lambda x, y: x+h < max(y))
+                    self.csp_graph.add_edge(self.column_variables[i][j], [self.column_variables[i][j+1]], lambda x, y, l=h: x+l < max(y[0]))
                 if j != 0:  # if not first variable
-                    self.csp_graph.add_edge(self.column_variables[i][j], self.column_variables[i][j-1], lambda x, y: x > min(y)+column[j-1])
+                    self.csp_graph.add_edge(self.column_variables[i][j], [self.column_variables[i][j-1]], lambda x, y, lp=column[j-1]: x > min(y[0])+lp)
 
     def generate_2d_constraints(self):
-        for x, cvs in enumerate(self.column_variables):
-            for y, rvs in enumerate(self.row_variables):
-                for v in
+
+        for i, cvs in enumerate(self.column_variables):
+            for col_var, h in zip(cvs, self.row_hints[i]):
+                def f(v, w, h=h, x=i):
+                    row_truth = [False] * h
+                    for d, (rvs, lengths) in enumerate(zip(self.row_variables[v:v+h], self.row_hints[v:v+h])):
+                        for rv, l in zip(rvs, lengths):
+                            for r in rv.domain:
+                                if x in [seq for seq in range(r, r+l)]:
+                                    row_truth[d] = True
+                                    break
+                    return all(row_truth)
+                rvs = []
+                [[rvs.append(ugh) for ugh in barf] for barf in self.row_variables]
+                self.csp_graph.add_edge(col_var, rvs, f)
+
+        for i, rvs in enumerate(self.row_variables):
+            for row_var, h in zip(rvs, self.row_hints[i]):
+                def ff(v, w, h=h, y=i):
+                    column_truth = [False] * h
+                    for d, (cvs, lengths) in enumerate(zip(self.column_variables[v:v+h], self.column_hints[v:v+h])):
+                        for cv, l in zip(cvs, lengths):
+                            for c in cv.domain:
+                                if y in [seq for seq in range(c, c+l)]:
+                                    column_truth[d] = True
+                                    break
+                    return all(column_truth)
+                cvs = []
+                [[cvs.append(ugh) for ugh in barf] for barf in self.column_variables]
+                self.csp_graph.add_edge(row_var, cvs, ff)
+
+                #self.csp_graph.add_edge(rv, cvs, lambda v, w, d=x: v != d or [any([any([v == l for l in range(dc, dc+self.column_hints[d][i])]) for dc in t] for i, t in enumerate(w))])
+
+
+
 
     def generate_segments(self, constraints, domain):
         pass
 
-    def dimension_filtering(self):
-        pass
+    def fill_matrix(self):
+        ret = np.zeros(self.shape)
+        for y, (rvs, hs) in enumerate(zip(self.row_variables, self.row_hints)):
+            for r, h in zip(rvs, hs):
+                for x in range(r.domain[0], r.domain[0]+h):
+                    ret[x][y] = 1
+
+        return ret.T
+
 
     def draw_state(self, state):
         scale = 50
@@ -68,7 +126,10 @@ class Model:
         self.tk_canvas.delete('all')
         self.tk_canvas.create_rectangle(0, 0, self.shape[0] * scale, self.shape[1] * scale, fill='white')
 
-        # TODO actually draw something
+        for y, r in enumerate(state):
+            for x, p in enumerate(r):
+                if p == 1:
+                    self.tk_canvas.create_rectangle(x*scale, y*scale, (x+1)*scale, (y+1)*scale, fill='red')
 
         self.tk_master.update()
 
