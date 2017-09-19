@@ -3,6 +3,7 @@ import numpy as np
 import tkinter as tk
 from csp_graph import Graph
 
+
 class Model:
 
     def __init__(self, path):
@@ -13,32 +14,100 @@ class Model:
         self.column_hints = list(reversed(specs[1+self.shape[1]:]))
         self.row_variables = [[] for _ in range(len(self.row_hints))]
         self.column_variables = [[] for _ in range(len(self.column_hints))]
+
+        # makes domains and constraints
         self.generate_domains_and_1d_constraints()
-        self.generate_2d_constraints()
+        self.generate_2d_row_constraints_2()
+        self.generate_2d_col_constraints_2()
+
+        self.csp_graph.save_state_by_key(self.generate_state_id())
 
         self.tk_master = None
         self.tk_canvas = None
 
-    def h(self):
-        pass
+    def h(self, state):
+        self.csp_graph.load_state_by_key(state)
+        ret = 0
+        for n in self.csp_graph.nodes:
+            ret += len(n.domain)
+        #print(ret/len(self.csp_graph.nodes))
+        return 0#(ret/len(self.csp_graph.nodes))
 
-    def generate_next(self):
-        pass
+    def generate_next(self, state):
+        ret = []
+        for n in self.csp_graph.nodes:
+            for d in n.domain:
+                self.csp_graph.load_state_by_key(state)
+                n.update([d])
+                if not self.is_invalid():
+                    state_id = self.generate_state_id()
+                    ret.append(state_id)
+                    self.csp_graph.save_state_by_key(state_id)
+        return ret
 
-    def is_solution(self):
-        for vs in self.row_variables + self.column_variables:
-            for v in vs:
-                if len(v.domain) != 1:
-                    return False
+    def generate_state_id(self):
+        ret = []
+        for n in self.csp_graph.nodes:
+            ret.append(tuple(n.domain))
+        return tuple(ret)
+
+    def is_solution(self, state):
+        self.csp_graph.load_state_by_key(state)
+        for vs in self.csp_graph.nodes:
+            if len(vs.domain) != 1:
+                return False
+        img = self.fill_matrix()
+        for y, r in enumerate(img):
+            segment = 0
+            segment_length = 0
+            in_segment = False
+            for x, p in enumerate(r):
+                if in_segment:
+                    if p == 1:
+                        segment_length += 1
+                    else:
+                        if segment_length != self.row_hints[y][segment]:
+                            return False
+                        segment += 1
+                        in_segment = False
+                else:
+                    if p == 1:
+                        in_segment = True
+                        segment_length = 1
+        for x, c in enumerate(img.T):
+            segment = 0
+            segment_length = 0
+            in_segment = False
+            for y, p in enumerate(c):
+                if segment == len(self.column_hints[x]):
+                    break
+                if in_segment:
+                    if p == 1:
+                        segment_length += 1
+                    else:
+                        try:
+                            self.column_hints[x-1][segment]
+                        except:
+                            print()
+                        if segment_length != self.column_hints[x][segment]:
+                            return False
+                        segment += 1
+                        in_segment = False
+                else:
+                    if p == 1:
+                        in_segment = True
+                        segment_length = 1
         return True
 
     def is_invalid(self):
-        for vs in self.row_variables + self.column_variables:
-            for v in vs:
-                if len(v.domain) == 0:
-                    return True
+        for v in self.csp_graph.nodes:
+            if len(v.domain) == 0:
+                return True
         return False
 
+    def col_constraints(self):
+        for y, rvs in enumerate(self.row_variables):
+            pass
 
     def generate_domains_and_1d_constraints(self):
         for i, row in enumerate(self.row_hints):
@@ -51,6 +120,7 @@ class Model:
                     self.csp_graph.add_edge(self.row_variables[i][j], [self.row_variables[i][j+1]], lambda x, y, l=h: x+l < max(y[0]))
                 if j != 0:  # if not first variable
                     self.csp_graph.add_edge(self.row_variables[i][j], [self.row_variables[i][j-1]], lambda x, y, lp=row[j-1]: x > min(y[0])+lp)
+
         for i, column in enumerate(self.column_hints):
             for _ in column:
                 self.column_variables[i].append(self.csp_graph.add_node([x for x in range(self.shape[1])]))
@@ -66,10 +136,10 @@ class Model:
                 if j != 0:  # if not first variable
                     self.csp_graph.add_edge(self.column_variables[i][j], [self.column_variables[i][j-1]], lambda x, y, lp=column[j-1]: x > min(y[0])+lp)
 
-    def generate_2d_constraints(self):
+    def generate_2d_col_constraints(self):
 
         for i, cvs in enumerate(self.column_variables):
-            for col_var, h in zip(cvs, self.row_hints[i]):
+            for col_var, h in zip(cvs, self.column_hints[i]):
                 def f(v, w, h=h, x=i):
                     row_truth = [False] * h
                     for d, (rvs, lengths) in enumerate(zip(self.row_variables[v:v+h], self.row_hints[v:v+h])):
@@ -78,11 +148,14 @@ class Model:
                                 if x in [seq for seq in range(r, r+l)]:
                                     row_truth[d] = True
                                     break
+                    #if not all(row_truth):
+                    #    print(x, v)
                     return all(row_truth)
                 rvs = []
                 [[rvs.append(ugh) for ugh in barf] for barf in self.row_variables]
                 self.csp_graph.add_edge(col_var, rvs, f)
 
+    def generate_2d_row_constraints(self):
         for i, rvs in enumerate(self.row_variables):
             for row_var, h in zip(rvs, self.row_hints[i]):
                 def ff(v, w, h=h, y=i):
@@ -93,15 +166,40 @@ class Model:
                                 if y in [seq for seq in range(c, c+l)]:
                                     column_truth[d] = True
                                     break
+                    #if not all(column_truth):
+                    #    print(y, v)
                     return all(column_truth)
                 cvs = []
                 [[cvs.append(ugh) for ugh in barf] for barf in self.column_variables]
                 self.csp_graph.add_edge(row_var, cvs, ff)
 
-                #self.csp_graph.add_edge(rv, cvs, lambda v, w, d=x: v != d or [any([any([v == l for l in range(dc, dc+self.column_hints[d][i])]) for dc in t] for i, t in enumerate(w))])
+    # 2D Constraints take 2
+    def generate_2d_col_constraints_2(self):
 
+        for i, cvs in enumerate(self.column_variables):
+            for col_var, h in zip(cvs, self.column_hints[i]):
+                def f(v, w, h=h, x=i):
+                    for rvy, rhy in zip(self.row_variables[v], self.row_hints[v]):
+                        for d in rvy.domain:
+                            if x in range(d, d+rhy):
+                                return True
+                    return False
+                rvs = []
+                [[rvs.append(rv) for rv in rvy] for rvy in self.column_variables]
+                self.csp_graph.add_edge(col_var, rvs, f)
 
-
+    def generate_2d_row_constraints_2(self):
+        for i, rvs in enumerate(self.row_variables):
+            for row_var, h in zip(rvs, self.row_hints[i]):
+                def f(v, w, h=h, y=i):
+                    for cvy, chy in zip(self.column_variables[v], self.column_hints[v]):
+                        for d in cvy.domain:
+                            if y in range(d, d+chy):
+                                return True
+                    return False
+                cvs = []
+                [[cvs.append(cv) for cv in cvx] for cvx in self.column_variables]
+                self.csp_graph.add_edge(row_var,cvs, f)
 
     def generate_segments(self, constraints, domain):
         pass
@@ -118,6 +216,7 @@ class Model:
 
     def draw_state(self, state):
         scale = 50
+        self.csp_graph.load_state_by_key(state)
         if self.tk_master is None:
             self.tk_master = tk.Tk()
             self.tk_canvas = tk.Canvas(self.tk_master, width=self.shape[0] * scale, height=self.shape[1] * scale)
@@ -126,7 +225,8 @@ class Model:
         self.tk_canvas.delete('all')
         self.tk_canvas.create_rectangle(0, 0, self.shape[0] * scale, self.shape[1] * scale, fill='white')
 
-        for y, r in enumerate(state):
+        state_matrix = self.fill_matrix()
+        for y, r in enumerate(state_matrix):
             for x, p in enumerate(r):
                 if p == 1:
                     self.tk_canvas.create_rectangle(x*scale, y*scale, (x+1)*scale, (y+1)*scale, fill='red')

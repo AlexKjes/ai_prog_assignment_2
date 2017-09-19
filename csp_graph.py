@@ -21,15 +21,24 @@ class Graph:
         for n in self.nodes:
             n.save()
 
+    def save_state_by_key(self, key):
+        for n in self.nodes:
+            n.key_save(key)
+
     def revert(self):
         for n in self.nodes:
             n.revert()
+
+    def load_state_by_key(self, key):
+        for n in self.nodes:
+            n.key_revert(key)
 
 
 class Node:
     def __init__(self, domain):
         self.domain = domain
         self.history = []
+        self.name_store = {}
         self.to_edges = []
 
     def update(self, new_domain):
@@ -40,9 +49,14 @@ class Node:
     def save(self):
         self.history.append(self.domain)
 
+    def key_save(self, key):
+        self.name_store[key] = self.domain
+
     def revert(self):
         self.domain = self.history.pop()
 
+    def key_revert(self, key):
+        self.domain = self.name_store[key]
 
 # Started as an edge, mutated in to some kind of fork to support > binary constraints
 class Edge:
