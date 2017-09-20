@@ -4,15 +4,32 @@ import csp_graph
 import graph
 
 
-puzzles = ['cat', 'chick', 'clover', 'elephant', 'fox', 'rabbit', 'reindeer', 'sailboat', 'snail2', 'telephone']
+puzzles = ['test', 'cat', 'chick', 'clover', 'elephant', 'fox', 'rabbit', 'reindeer', 'sailboat', 'snail2', 'telephone']
 
 
-model = Model('puzzles/nono-'+puzzles[0]+'.txt')
+model = Model('puzzles/nono-'+puzzles[9]+'.txt')
 search_graph = graph.Graph(model.generate_state_id(), model.generate_next)
 solver = BestFirst(search_graph, model.h, model.is_solution)
 
+
+
+
+i = 0
+for n in model.csp_graph.nodes:
+    i += len(n.domain)
+print(i)
+if i != 0:
+    model.draw_state(model.generate_state_id())
+
+#for rp in model.column_sequences[6]:
+#    print(rp)
+
+model.csp_graph.load_state_by_key(model.pre_key)
+input()
+
+
 while solver.solution == None:
-    #print(model.row_variables[4][0].domain)
+
     solver.next()
     model.draw_state(solver.last_expanded.state)
     #print("g: {}, h: {}".format(solver.last_expanded.g, solver.last_expanded.h))
@@ -20,7 +37,7 @@ while solver.solution == None:
 model.draw_state(solver.last_expanded.state)
 print("solution found")
 input()
-
+"""
 def assume(i=0):
     print(i)
     if model.is_solution():
@@ -39,7 +56,7 @@ def assume(i=0):
                 model.csp_graph.revert()
 
 
-
+"""
 
 """
 assume()

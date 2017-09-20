@@ -1,5 +1,4 @@
-global log
-log = False
+from copy import  copy
 
 
 class Graph:
@@ -47,10 +46,10 @@ class Node:
             e.revise()
 
     def save(self):
-        self.history.append(self.domain)
+        self.history.append(copy(self.domain))
 
     def key_save(self, key):
-        self.name_store[key] = self.domain
+        self.name_store[key] = copy(self.domain)
 
     def revert(self):
         self.domain = self.history.pop()
@@ -75,8 +74,6 @@ class Edge:
                 updated_domain.append(element)
             else:
                 change = True
-        global log
-        log = False
         if change:
             self.from_node.update(updated_domain)
 

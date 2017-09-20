@@ -2,7 +2,7 @@
 
 class BestFirst:
 
-    def __init__(self, graph, h_fn, solution_fn):
+    def __init__(self, graph, h_fn, solution_fn, generate_path=False):
         """
         :param graph: The graph containing the search space
         :param h_fn: A heuristic function that takes a node state and returns a scalar
@@ -13,6 +13,8 @@ class BestFirst:
         :var node self.last_expanded: The last node to be expanded
         :var [node] self.solution: A list of the solution path
         """
+
+        self.generate_path = generate_path
 
         self.h_fn = h_fn
         self.solution_fn = solution_fn
@@ -46,7 +48,10 @@ class BestFirst:
         self.last_expanded = next_node  # 2
         if self.solution_fn(next_node.state):  # 3
             print("solution_ found")
-            self.solution = self.generate_solution_path(next_node)
+            if self.generate_path:
+                self.solution = self.generate_solution_path(next_node)
+            else:
+                self.solution = True
             return
         self.expand_counter += 1  # 4
         for cn in next_node.get_children():  # 5

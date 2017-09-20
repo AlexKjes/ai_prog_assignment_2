@@ -10,32 +10,59 @@ class Model:
         specs = self.read_file(path)
         self.csp_graph = Graph()
         self.shape = specs[0]
-        self.row_hints = list(reversed(specs[1:self.shape[1]+1]))
-        self.column_hints = list(reversed(specs[1+self.shape[1]:]))
+        #self.row_hints = specs[self.shape[1]:0:-1]
+        self.row_hints = [list(reversed(h))for h in specs[self.shape[1]:0:-1]]
+        self.column_hints = specs[-1:self.shape[1]:-1]
+        #self.column_hints = specs[self.shape[1]+1:]
         self.row_variables = [[] for _ in range(len(self.row_hints))]
         self.column_variables = [[] for _ in range(len(self.column_hints))]
 
         # makes domains and constraints
         self.generate_domains_and_1d_constraints()
-        self.generate_2d_row_constraints_2()
-        self.generate_2d_col_constraints_2()
+        #self.generate_2d_row_constraints_2()
+        #self.generate_2d_col_constraints_2()
+        #self.csp_graph.save_state_by_key(self.generate_state_id())
 
+        self.row_sequences = [[] for _ in self.row_hints]
+        self.generate_row_sequences()
+        self.column_sequences = [[] for _ in self.column_hints]
+        self.generate_column_sequences()
+
+        # re init csp
+        self.csp_graph = Graph()
+        self.row_variables = []
+        self.column_variables = []
+        self.sequences_to_csp_vars()
+
+        self.csp_graph.save_state_by_key(self.generate_state_id())
+        self.pre_key = self.generate_state_id()
+
+        #self.generate_2d_row_seq_constraints()
+        self.generate_2d_column_seq_constraints()
+
+        """
+        i = 0
+        for n in self.csp_graph.nodes:
+            i += len(n.domain)
+        print(i)
+        """
+        #input()
         self.csp_graph.save_state_by_key(self.generate_state_id())
 
         self.tk_master = None
         self.tk_canvas = None
+
 
     def h(self, state):
         self.csp_graph.load_state_by_key(state)
         ret = 0
         for n in self.csp_graph.nodes:
             ret += len(n.domain)
-        #print(ret/len(self.csp_graph.nodes))
-        return 0#(ret/len(self.csp_graph.nodes))
+        return ret
 
     def generate_next(self, state):
         ret = []
-        for n in self.csp_graph.nodes:
+        for n in self.row_variables:
             for d in n.domain:
                 self.csp_graph.load_state_by_key(state)
                 n.update([d])
@@ -48,14 +75,15 @@ class Model:
     def generate_state_id(self):
         ret = []
         for n in self.csp_graph.nodes:
-            ret.append(tuple(n.domain))
+            ret.append(tuple([tuple(d) for d in n.domain]))
         return tuple(ret)
 
     def is_solution(self, state):
         self.csp_graph.load_state_by_key(state)
-        for vs in self.csp_graph.nodes:
+        for vs in self.row_variables:
             if len(vs.domain) != 1:
                 return False
+
         img = self.fill_matrix()
         for y, r in enumerate(img):
             segment = 0
@@ -85,10 +113,6 @@ class Model:
                     if p == 1:
                         segment_length += 1
                     else:
-                        try:
-                            self.column_hints[x-1][segment]
-                        except:
-                            print()
                         if segment_length != self.column_hints[x][segment]:
                             return False
                         segment += 1
@@ -97,6 +121,7 @@ class Model:
                     if p == 1:
                         in_segment = True
                         segment_length = 1
+
         return True
 
     def is_invalid(self):
@@ -108,6 +133,91 @@ class Model:
     def col_constraints(self):
         for y, rvs in enumerate(self.row_variables):
             pass
+
+    def generate_row_sequences(self):
+        for y, row in enumerate(self.row_variables):
+            [rv.save() for rv in row]
+            self.generate_row_sequence(y, 0)
+            [rv.revert() for rv in row]
+
+    def generate_row_sequence(self, y, i):
+        row = self.row_variables[y]
+        for dc in row[i].domain:
+            row[i].save()
+            row[i].update([dc])
+            if i < len(row)-1:
+                self.generate_row_sequence(y, i+1)
+            else:
+                row_seq = np.zeros(len(self.column_hints), dtype=np.int8)
+                for j, rv in enumerate(row):
+                    d = rv.domain[0]
+                    row_seq[d:d+self.row_hints[y][j]] = 1
+                self.row_sequences[y].append(row_seq)
+            row[i].revert()
+
+    def generate_column_sequences(self):
+        for x, column in enumerate(self.column_variables):
+            [cv.save() for cv in column]
+            self.generate_column_sequence(x, 0)
+            [cv.revert() for cv in column]
+
+    def generate_column_sequence(self, x, i):
+        column = self.column_variables[x]
+        for dc in column[i].domain:
+            column[i].save()
+            column[i].update([dc])
+            if i < len(column)-1:
+                self.generate_column_sequence(x, i+1)
+            else:
+                column_seq = np.zeros(len(self.row_hints), dtype=np.int8)
+                for j, cv in enumerate(column):
+                    d = cv.domain[0]
+                    column_seq[d:d+self.column_hints[x][j]] = 1
+                self.column_sequences[x].append(column_seq)
+            column[i].revert()
+
+    def sequences_to_csp_vars(self):
+        for row in self.row_sequences:
+            node = self.csp_graph.add_node(row)
+            self.row_variables.append(node)
+        for column in self.column_sequences:
+            node = self.csp_graph.add_node(column)
+            self.column_variables.append(node)
+
+    def generate_2d_row_seq_constraints(self):
+        for i, r in enumerate(self.row_variables):
+            def f(row, columns, y=i):
+                truth = [False] * len(row)
+                for x, p in enumerate(row):
+                    l = []
+                    for c in columns[x]:
+                        if c[y] not in l:
+                            l.append(c[y])
+                        if len(l) == 2:
+                            break
+                    if p in l:
+                        #return True
+                        truth[x] = True
+                return all(truth)
+            self.csp_graph.add_edge(r, self.column_variables, f)
+
+    def generate_2d_column_seq_constraints(self):
+        for j, c in enumerate(self.column_variables):
+            def g(column, rows, x=j):
+                truth = [False] * len(column)
+                for y, p in enumerate(column):
+                    l = []
+                    for r in rows[y]:
+                        if r[x] not in l:
+                            l.append(r[x])
+                        if len(l) == 2:
+                            break
+                    if p in l:
+                        #return True
+                        truth[y] = True
+                return all(truth)
+            self.csp_graph.add_edge(c, self.row_variables, g)
+
 
     def generate_domains_and_1d_constraints(self):
         for i, row in enumerate(self.row_hints):
@@ -125,10 +235,6 @@ class Model:
             for _ in column:
                 self.column_variables[i].append(self.csp_graph.add_node([x for x in range(self.shape[1])]))
             for j, h in enumerate(column):
-                #if i == 4 and j == 0:
-                #    print(h)
-                #    print(self.column_variables[i][j].domain)
-                #    print(self.column_variables[i][j+1].domain)
                 if j == len(column)-1:  # if last variable
                     self.csp_graph.add_edge(self.column_variables[i][j], [self.column_variables[i][j]], lambda x, y, l=h: x+l-1 < self.shape[1])
                 else:
@@ -175,7 +281,6 @@ class Model:
 
     # 2D Constraints take 2
     def generate_2d_col_constraints_2(self):
-
         for i, cvs in enumerate(self.column_variables):
             for col_var, h in zip(cvs, self.column_hints[i]):
                 def f(v, w, h=h, x=i):
@@ -204,7 +309,7 @@ class Model:
     def generate_segments(self, constraints, domain):
         pass
 
-    def fill_matrix(self):
+    def fill_matrix_old(self):
         ret = np.zeros(self.shape)
         for y, (rvs, hs) in enumerate(zip(self.row_variables, self.row_hints)):
             for r, h in zip(rvs, hs):
@@ -212,6 +317,14 @@ class Model:
                     ret[x][y] = 1
 
         return ret.T
+
+    def fill_matrix(self):
+        ret = np.zeros((self.shape[1], self.shape[0]))
+        for i, row in enumerate(self.row_variables):
+            ret[i] = row.domain[0]
+
+        return ret
+
 
 
     def draw_state(self, state):
@@ -262,7 +375,6 @@ class ModelV1:
     def generate_random_state(self):
         ret = []
         for domain in self.domains[0] + self.domains[1]:
-            print(len(domain))
             ret.append(randint(0, len(domain)))
         return ret
 
@@ -426,7 +538,6 @@ class ModelV3:
     def generate_random_state(self):
         ret = []
         for domain in self.domains[0] + self.domains[1]:
-            print(len(domain))
             ret.append(randint(0, len(domain)))
         return ret
 
