@@ -111,13 +111,15 @@ class BestFirst:
         """
         ret = []
         current = solution_node
+
         while True:
-            ret.insert(0, current)
             parents = current.parents
+            if current.g == 0 or len(parents)==0:
+                break
+            ret.insert(0, current)
             sorted(parents, key=lambda node: node.g)
             current = parents[0]
-            if current.g == 0:
-                break
+        print("lenlenlenlenleln {}".format(len(ret)))
         return ret
 
 

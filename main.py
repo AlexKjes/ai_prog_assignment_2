@@ -2,37 +2,31 @@ from model import *
 from a_star import BestFirst
 import csp_graph
 import graph
-
+from time import time
 
 puzzles = ['test', 'cat', 'chick', 'clover', 'elephant', 'fox', 'rabbit', 'reindeer', 'sailboat', 'snail2', 'telephone']
 
-
-model = Model('puzzles/nono-'+puzzles[9]+'.txt')
+start = time()
+model = Model('puzzles/nono-'+puzzles[7]+'.txt')
 search_graph = graph.Graph(model.generate_state_id(), model.generate_next)
-solver = BestFirst(search_graph, model.h, model.is_solution)
-
-
+solver = BestFirst(search_graph, model.h, model.is_solution, True)
 
 
 i = 0
-for n in model.csp_graph.nodes:
+for n in model.row_variables:
     i += len(n.domain)
 print(i)
-if i != 0:
-    model.draw_state(model.generate_state_id())
-
-#for rp in model.column_sequences[6]:
-#    print(rp)
-
-model.csp_graph.load_state_by_key(model.pre_key)
-input()
-
 
 while solver.solution == None:
-
+    #
     solver.next()
     model.draw_state(solver.last_expanded.state)
     #print("g: {}, h: {}".format(solver.last_expanded.g, solver.last_expanded.h))
+
+print("Elapsed time: {}s".format(time()-start))
+print("Nodes expanded: {}".format(solver.expand_counter))
+print("Path length: {}".format(len(solver.solution)))
+print("Total nodes created: {}".format(len(search_graph.nodes)))
 
 model.draw_state(solver.last_expanded.state)
 print("solution found")

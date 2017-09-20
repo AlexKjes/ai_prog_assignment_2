@@ -2,6 +2,9 @@ from copy import  copy
 
 
 class Graph:
+    """
+    Constraint satisfaction graph contains variables connected by constraints
+    """
     def __init__(self):
         self.nodes = []
         self.edges = []
@@ -17,10 +20,20 @@ class Graph:
         return e
 
     def save_state(self):
+        """
+        saves the current state of the graph
+        :return:
+        """
         for n in self.nodes:
             n.save()
 
+
     def save_state_by_key(self, key):
+        """
+        saves the current state of the graph by  key, so it can be retrieved by the same key
+        :param key:
+        :return:
+        """
         for n in self.nodes:
             n.key_save(key)
 
@@ -34,6 +47,9 @@ class Graph:
 
 
 class Node:
+    """
+    Node represents a variable in a csp
+    """
     def __init__(self, domain):
         self.domain = domain
         self.history = []
@@ -41,6 +57,11 @@ class Node:
         self.to_edges = []
 
     def update(self, new_domain):
+        """
+        updates to this variables domain notifies reevaluates variables dependant on this
+        :param new_domain:
+        :return:
+        """
         self.domain = new_domain
         for e in self.to_edges:
             e.revise()
@@ -57,8 +78,11 @@ class Node:
     def key_revert(self, key):
         self.domain = self.name_store[key]
 
-# Started as an edge, mutated in to some kind of fork to support > binary constraints
+
 class Edge:
+    """
+    Represents a constraint
+    """
     def __init__(self, from_node, to_nodes, constraint):
         self.to_nodes = to_nodes
         [to_node.to_edges.append(self) for to_node in to_nodes]
@@ -77,6 +101,8 @@ class Edge:
         if change:
             self.from_node.update(updated_domain)
 
+    def remove(self):
+        [n.to_edges.remove(self) for n in self.to_nodes]
 
 
 if __name__ == '__main__':
@@ -91,3 +117,7 @@ if __name__ == '__main__':
     Edge(n1, n1, lambda x, y: x > 3)
 
     print(n1.domain)
+
+
+
+
